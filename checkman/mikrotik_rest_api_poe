@@ -1,0 +1,17 @@
+title: MikroTik REST API: PoE Consumption
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ Total PoE output power of a MikroTik device ({poe-out-consumption} from
+ {/system/health}). Informational, no levels.
+
+ Special agent {MikroTik RouterOS (mikrotik-rest-api)} in Setup >
+ Agents > Other integrations, module "RouterOS Health".
+
+perfdata:
+ PoE output power in watts.
+
+inventory:
+ One service if the device reports a PoE consumption.

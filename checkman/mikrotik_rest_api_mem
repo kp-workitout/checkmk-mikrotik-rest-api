@@ -1,0 +1,23 @@
+title: MikroTik REST API: Memory
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ Main memory usage of a MikroTik RouterOS device ({total-memory} and
+ {free-memory} of {/system/resource}). Levels via the rule {Main memory
+ usage of simple devices with single services}, percent used (default
+ WARN at 80%, CRIT at 90%) or absolute free memory.
+
+ To connect to the MikroTik device a special datasource program is
+ used: {MikroTik RouterOS (mikrotik-rest-api)} in Setup > Agents >
+ Other integrations, module "RouterOS Info, CPU, memory, system disk,
+ uptime".
+
+ Added in mikrotik-rest-api 1.0.0 by Klaus Paulitsch.
+
+perfdata:
+ Used memory in percent and bytes, total memory.
+
+inventory:
+ One service.

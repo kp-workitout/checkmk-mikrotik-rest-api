@@ -1,0 +1,31 @@
+title: MikroTik REST API: WireGuard Peers
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ WireGuard peers of a MikroTik router ({/interface/wireguard/peers}).
+ Private and preshared keys are not collected.
+
+ A peer with endpoint address and persistent keepalive that is not a
+ responder counts as site-to-site: its handshake is renewed about every
+ 2 minutes, so the time since the last handshake has levels (default
+ WARN 5 min, CRIT 15 min, CRIT if there was no handshake yet). All other
+ peers count as dial-in (road warriors) without levels by default.
+ Also shown: current endpoint, traffic in/out, configured endpoint,
+ allowed addresses, keepalive and public key. Levels via the rule
+ {MikroTik REST API: WireGuard peers}.
+
+ Special agent {MikroTik RouterOS (mikrotik-rest-api)} in Setup >
+ Agents > Other integrations, module "WireGuard peers".
+
+ Added in mikrotik-rest-api 1.1.0 by Klaus Paulitsch.
+
+item:
+ Interface name and comment of the peer (or its name, or the first 8 characters of the public key).
+
+perfdata:
+ Time since the last handshake, traffic in/out.
+
+inventory:
+ One service per peer that is not disabled.

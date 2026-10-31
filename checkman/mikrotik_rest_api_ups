@@ -1,0 +1,29 @@
+title: MikroTik REST API: UPS
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ UPS connected to a MikroTik router via USB or serial ({/system/ups},
+ needs the RouterOS package {ups.npk}). The agent reads the UPS list and
+ runs {/system/ups/monitor once} for each UPS.
+
+ Reported: power source (CRIT on battery by default), battery low (CRIT),
+ battery needs replacement and output overloaded (WARN), battery charge
+ (lower levels 50%/25%), remaining runtime (lower levels 10/5 min), output
+ load (upper levels 80%/90%), temperature, input/output/battery voltage
+ and frequency. All levels and states via the rule {MikroTik REST API: UPS}.
+
+ Special agent {MikroTik RouterOS (mikrotik-rest-api)} in Setup >
+ Agents > Other integrations, module "UPS".
+
+ Added in mikrotik-rest-api 1.1.0 by Klaus Paulitsch.
+
+item:
+ The name of the UPS.
+
+perfdata:
+ Battery charge, runtime left, load, temperature, voltages, frequency.
+
+inventory:
+ One service per UPS that is not disabled.

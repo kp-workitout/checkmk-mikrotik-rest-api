@@ -1,0 +1,23 @@
+title: MikroTik REST API: BGP
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ BGP sessions of a MikroTik Device
+
+ Check is {OK} if a BGP session is established, {WARN} if disabled
+ and {CRIT} in any other case.
+
+ To connect to the MikroTik device a special datasource program is
+ used (SNMP won't report this information): {MikroTik RouterOS (mikrotik-rest-api)} in 
+ Setup > Agents> Other integrations > Hardware
+
+item:
+ The BGP session name.
+
+perfdata:
+ None
+
+inventory:
+ One service per BGP session of the device.

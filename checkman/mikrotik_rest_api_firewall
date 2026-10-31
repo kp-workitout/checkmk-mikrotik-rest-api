@@ -1,0 +1,25 @@
+title: MikroTik REST API: Firewall Filter Rules
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ Firewall Filter rules of a MikroTik Router
+
+ This check reports bandwidth of a firewall rule. It will {WARN} if 
+ the rule is disabled. The comment of a rule is the Service item.
+ You may shorten this by using a keyword in comment: everything
+ after "checkmk: " is used as item if this keyword is found.
+
+ To connect to the MikroTik device a special datasource program is
+ used (SNMP won't report this information): {MikroTik RouterOS (mikrotik-rest-api)} in
+ Setup > Agents> Other integrations > Hardware
+
+item:
+ comment of rule, shortened if applicable.
+
+perfdata:
+ bit/s
+
+inventory:
+ one service per

@@ -1,0 +1,29 @@
+title: MikroTik REST API: local Files
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ Creation time of local files of a MikroTik Router
+
+ This check finds local files and checks age of creation time.
+ It will go {WARN} or {CRIT} if thresholds are exceeded, that default to
+ 25h/49h. This is useful if local scripts should run on a regular base, e.g.
+ download some blacklists. To extract timestamp from API output a configurable
+ pattern is used.
+
+ The watchdog crashfile {autosupout.rif} is {OK} if missing and {CRIT} on existing.
+
+ To connect to the MikroTik device a special datasource program is
+ used (SNMP won't report this information): {MikroTik RouterOS (mikrotik-rest-api)} in
+ Setup > Agents> Other integrations > Hardware
+
+item:
+ name of file
+
+perfdata:
+ none
+
+inventory:
+ one service per file
+

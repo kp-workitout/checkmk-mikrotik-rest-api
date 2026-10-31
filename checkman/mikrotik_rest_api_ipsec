@@ -1,0 +1,27 @@
+title: MikroTik REST API: IPsec
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ IPsec of a MikroTik Router
+
+ This check reports status of ipsec connections.
+ sa states not 'mature' or 'dying' will go {CRIT} (can be configured
+ by a rule).
+ It stays {OK} if an ipsec has no sa, but local IP address is marked
+ invalid. Most likely this is a standby gateway.
+
+ To connect to the MikroTik device a special datasource program is
+ used (SNMP won't report this information): {MikroTik RouterOS (mikrotik-rest-api)} in
+ Setup > Agents> Other integrations > Hardware
+
+item:
+ IPsec <peer name>
+
+perfdata:
+ bit/s and packet/s
+
+inventory:
+ one service per ipsec
+

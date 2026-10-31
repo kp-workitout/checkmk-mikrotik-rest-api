@@ -1,0 +1,31 @@
+MikroTik RouterOS monitoring for CheckMK (package mikrotik-rest-api)
+
+Based on the mikrotik package 4.2.0, renamed so it can be installed next to it. Uses only the RouterOS REST API (HTTPS or HTTP) and adds network interfaces, CPU, memory, system disk and uptime.
+
+Monitors MikroTik RouterOS devices via the RouterOS REST API (RouterOS 7.1+, service www-ssl for HTTPS or www for HTTP from 7.9). Provides checks for:
+
+- System health, fans, and temperature sensors
+- Power supply units (per-PSU voltage, current, and wattage), PoE consumption
+- BGP and OSPF neighbors - not tested
+- VRRP status - not tested
+- IPsec tunnels - not tested
+- Firewall rules (with optional disabled-rule visibility) - not tested
+- File age monitoring
+- RouterOS Info: model, serial number, RouterOS version (with minimum version enforcement) and RouterBOOT firmware (state if an upgrade is pending)
+- HW/SW inventory: model, serial number, RouterOS version, RouterBOOT firmware
+- License expiration (CHR)
+- WiFi per SSID: connected clients, signal strength and radio state, for the new wifi driver, the legacy wireless driver (not tested) and CAPsMAN, new and legacy (one controller covers all its access points)
+- System: CPU utilization, memory, system disk and uptime with the standard Checkmk rules
+- UPS, IP pool usage, NTP client and WireGuard peers (handshake age, endpoint, traffic)
+- Network interfaces: traffic, errors, discards, state and speed with the standard Checkmk interface rules
+- HW/SW inventory of the access points managed by a CAPsMAN controller: identity, model, serial number, RouterOS version, base MAC
+
+Requirements: CheckMK 2.4 or later, RouterOS 7.1 or later, a user with the policies read and api.
+
+Rules of the original mikrotik package are not taken over; create a new special agent rule MikroTik RouterOS (mikrotik-rest-api).
+
+Changes per release are shown in the version description below. Full changelog: CHANGELOG.MD in the package.
+
+Original source: https://github.com/TonyBostonTB/CMK_Mikrotik
+
+Original plugin: Tony Boston, based on the plugin by Andrea Fadda (devilofhell87). mikrotik-rest-api 1.0.0 (REST API only, rename, interface monitoring, CPU/memory/disk/uptime): Klaus Paulitsch.

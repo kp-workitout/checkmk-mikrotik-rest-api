@@ -1,0 +1,25 @@
+title: MikroTik REST API: Filesystem system disk
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ Usage of the system storage of a MikroTik RouterOS device
+ ({total-hdd-space} and {free-hdd-space} of {/system/resource}), with
+ the standard filesystem check: levels, magic factor and trends via the
+ rule {File systems (used space and growth)}, default WARN at 80%,
+ CRIT at 90%. Bad blocks of the NAND flash are only shown in the
+ details, they have their own service {NAND bad blocks}.
+
+ To connect to the MikroTik device a special datasource program is
+ used: {MikroTik RouterOS (mikrotik-rest-api)} in Setup > Agents >
+ Other integrations, module "RouterOS Info, CPU, memory, system disk,
+ uptime".
+
+ Added in mikrotik-rest-api 1.0.0 by Klaus Paulitsch.
+
+perfdata:
+ Used, free and total space, growth and trend.
+
+inventory:
+ One service, item {system disk}.

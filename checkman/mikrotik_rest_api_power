@@ -1,0 +1,26 @@
+title: MikroTik REST API: Power Usage
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ Power usage of a MikroTik RouterOS device.
+
+ This check will report power usage of the device, incl. voltage,
+ current and power. If PSUs are reported by api, it will {WARN} if
+ count changes and reports each PSU in details of service. Low voltage
+ is considered failure.
+
+ To connect to the MikroTik device a special datasource program is
+ used (SNMP won't report this information): {MikroTik RouterOS (mikrotik-rest-api)} in
+ Setup > Agents> Other integrations > Hardware
+
+item:
+ None
+
+perfdata:
+ current, voltage and power
+
+inventory:
+ One service per device.
+

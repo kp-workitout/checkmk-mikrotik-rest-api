@@ -1,0 +1,26 @@
+title: MikroTik REST API: NTP Client
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ NTP client of a MikroTik router ({/system/ntp/client}).
+
+ Reported: synchronisation status (WARN if not {synchronized}), the
+ server synchronized with, the absolute time offset (default 200 ms /
+ 500 ms) and the stratum (default 10/15). Mode, servers, VRF and
+ frequency drift are shown in the details. The offset is read with its
+ unit (ns, us, ms, s); the REST API delivers a plain number in
+ milliseconds.
+ Levels via the rule {MikroTik REST API: NTP client}.
+
+ Special agent {MikroTik RouterOS (mikrotik-rest-api)} in Setup >
+ Agents > Other integrations, module "NTP client".
+
+ Added in mikrotik-rest-api 1.1.0 by Klaus Paulitsch.
+
+perfdata:
+ Time offset.
+
+inventory:
+ One service if the NTP client is enabled.

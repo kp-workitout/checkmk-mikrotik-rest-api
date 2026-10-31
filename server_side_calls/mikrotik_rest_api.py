@@ -1,0 +1,181 @@
+"""CheckMK server-side call definition for the MikroTik special agent.
+
+Translates the rule parameters (set via the Setup UI) into the CLI arguments
+passed to libexec/agent_mikrotik_rest_api when CheckMK runs a host check.
+The agent only talks to the RouterOS REST API (HTTPS or HTTP).
+
+Passwords are handled via CheckMK's Secret type so they are never written
+to disk or passed through environment variables in plaintext.
+"""
+
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from typing import Any
+
+from cmk.server_side_calls.v1 import (
+    HostConfig,
+    Secret,
+    SpecialAgentCommand,
+    SpecialAgentConfig,
+)
+
+# ---------------------------------------------------------------------------
+# Parameter models
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class _FirewallConfig:
+    """Parsed firewall sub-section of the agent rule."""
+
+    enabled: bool = False
+    show_disabled: bool = False
+
+
+def _parse_firewall(raw: dict[str, Any]) -> _FirewallConfig:
+    """Parse the firewall dict from the form, normalising hyphenated keys.
+
+    The form spec now uses "show_disabled" (underscore); legacy WATO rules
+    stored "show-disabled" (hyphen). Both are accepted here.
+    """
+    return _FirewallConfig(
+        enabled=bool(raw.get("enabled", False)),
+        show_disabled=bool(
+            raw.get("show-disabled", raw.get("show_disabled", False)),
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class _Params:
+    """Fully-parsed parameters passed to _mikrotik_rest_api_commands.
+
+    The infos booleans are flattened out of the nested "infos" dict at parse
+    time to make the command-building logic below straightforward.
+    """
+
+    user: str
+    password: Secret
+    ssl_mode: str = "ssl"  # "ssl" | "ssl_skip" | "no_ssl"
+    connect: int | None = None  # None: 443 (HTTPS) / 80 (HTTP)
+    timeout: int | None = None
+    # Module flags (correspond 1-to-1 with --modules arguments)
+    bgp: bool = False
+    ospf: bool = False
+    vrrp: bool = False
+    health: bool = False
+    board: bool = False
+    ipsec: bool = False
+    file: bool = False
+    license: bool = False
+    wifi: bool = False
+    interfaces: bool = False
+    ups: bool = False
+    pools: bool = False
+    ntp: bool = False
+    wireguard: bool = False
+    firewall: _FirewallConfig = field(default_factory=_FirewallConfig)
+
+    @classmethod
+    def from_raw(cls, obj: Any) -> "_Params":  # noqa: ANN401
+        """Parse the raw dict produced by CheckMK's form spec machinery.
+
+        ANN401 is suppressed because CheckMK's SpecialAgentConfig types
+        parameter_parser as Callable[[object], T]; we accept Any here to avoid
+        a runtime isinstance guard that would add no real safety.
+        """
+        infos: dict[str, Any] = obj.get("infos", {})
+        fw_raw: dict[str, Any] = infos.get("firewall", {})
+
+        return cls(
+            user=obj["user"],
+            password=obj["password"],
+            ssl_mode=obj.get("ssl_mode", "ssl"),
+            connect=int(obj["connect"]) if obj.get("connect") else None,
+            timeout=int(obj["timeout"]) if obj.get("timeout") else None,
+            bgp=bool(infos.get("bgp", False)),
+            ospf=bool(infos.get("ospf", False)),
+            vrrp=bool(infos.get("vrrp", False)),
+            health=bool(infos.get("health", False)),
+            board=bool(infos.get("board", False)),
+            ipsec=bool(infos.get("ipsec", False)),
+            file=bool(infos.get("file", False)),
+            license=bool(infos.get("license", False)),
+            wifi=bool(infos.get("wifi", False)),
+            interfaces=bool(infos.get("interfaces", False)),
+            ups=bool(infos.get("ups", False)),
+            pools=bool(infos.get("pools", False)),
+            ntp=bool(infos.get("ntp", False)),
+            wireguard=bool(infos.get("wireguard", False)),
+            firewall=_parse_firewall(fw_raw) if fw_raw else _FirewallConfig(),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Command builder
+# ---------------------------------------------------------------------------
+
+# Modules that map directly to a single boolean flag in the params model.
+_SIMPLE_MODULES = (
+    "bgp", "ospf", "vrrp", "health", "board", "ipsec", "file", "license", "wifi",
+    "interfaces", "ups", "pools", "ntp", "wireguard",
+)
+
+
+def _mikrotik_rest_api_commands(
+    params: _Params,
+    host_config: HostConfig,
+) -> Iterable[SpecialAgentCommand]:
+    """Yield the SpecialAgentCommand that CheckMK will execute for this host."""
+    args: list[str | Secret] = [
+        "--user", params.user,
+        # Secret is expanded to the actual password by SpecialAgentCommand
+        # without it ever appearing in plain text in the process arguments.
+        "--pass", params.password,
+    ]
+
+    if params.ssl_mode == "no_ssl":
+        args.append("--no-ssl")
+    elif params.ssl_mode == "ssl_skip":
+        args.append("--skip-cert-check")
+    if params.connect:
+        args += ["--connect", str(params.connect)]
+    if params.timeout:
+        args += ["--timeout", str(params.timeout)]
+
+    # Build the comma-separated module list from the enabled flags.
+    modules: list[str] = [
+        name for name in _SIMPLE_MODULES if getattr(params, name)
+    ]
+    if params.firewall.enabled:
+        # The agent accepts "firewall:show-disabled" as a compound token.
+        modules.append(
+            "firewall:show-disabled" if params.firewall.show_disabled else "firewall",
+        )
+
+    if modules:
+        args += ["--modules", ",".join(modules)]
+
+    # Prefer IPv4; fall back to IPv6, then hostname.
+    if host_config.ipv4_config and host_config.ipv4_config.address:
+        ipaddress: str = host_config.ipv4_config.address
+    elif host_config.ipv6_config and host_config.ipv6_config.address:
+        ipaddress = host_config.ipv6_config.address
+    else:
+        ipaddress = host_config.name
+
+    args.append(ipaddress)
+
+    yield SpecialAgentCommand(command_arguments=args)
+
+
+# ---------------------------------------------------------------------------
+# Registration
+# ---------------------------------------------------------------------------
+
+special_agent_mikrotik_rest_api = SpecialAgentConfig(
+    name="mikrotik_rest_api",
+    # from_raw is the parameter_parser: receives the raw form dict and returns
+    # a typed _Params instance that _mikrotik_rest_api_commands can use safely.
+    parameter_parser=_Params.from_raw,
+    commands_function=_mikrotik_rest_api_commands,
+)

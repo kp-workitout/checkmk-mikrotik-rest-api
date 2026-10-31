@@ -1,0 +1,5 @@
+# Keep Unix line endings on every platform (also on Windows):
+# the agent in libexec/ is executed on the Checkmk server (Linux),
+# a CRLF in its shebang line would break it.
+* text=auto eol=lf
+*.mkp binary

@@ -1,0 +1,23 @@
+title: MikroTik REST API: CPU utilization
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ CPU utilization of a MikroTik RouterOS device ({cpu-load} of
+ {/system/resource}), with CPU model, cores and frequency in the
+ details. Levels and averaging via the rule {CPU utilization for simple
+ devices}, default WARN at 90%, CRIT at 95%.
+
+ To connect to the MikroTik device a special datasource program is
+ used: {MikroTik RouterOS (mikrotik-rest-api)} in Setup > Agents >
+ Other integrations, module "RouterOS Info, CPU, memory, system disk,
+ uptime".
+
+ Added in mikrotik-rest-api 1.0.0 by Klaus Paulitsch.
+
+perfdata:
+ Utilization in percent.
+
+inventory:
+ One service.

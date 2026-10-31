@@ -1,0 +1,838 @@
+#!/usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# +------------------------------------------------------------------+
+# |             ____ _               _        __  __ _  __           |
+# |            / ___| |__   ___  ___| | __   |  \/  | |/ /           |
+# |           | |   | '_ \ / _ \/ __| |/ /   | |\/| | ' /            |
+# |           | |___| | | |  __/ (__|   <    | |  | | . \            |
+# |            \____|_| |_|\___|\___|_|\_\___|_|  |_|_|\_\           |
+# |                                                                  |
+# | Copyright Tony Boston 2026                   tboston@csitlab.org |
+# +------------------------------------------------------------------+
+#
+# mikrotik-rest-api 1.0.0 by Klaus Paulitsch <kp@workitout.at>:
+# REST API only (HTTPS/HTTP), interfaces module (interface_lines,
+# rest_post, rate_to_bps), based on mikrotik 4.2.0 by Tony Boston.
+# 1.1.0: modules ups, pools, ntp, wireguard (JSON_MODULES).
+#
+# this file is part of mkp package "mikrotik-rest-api"
+# see package description and ~/local/share/doc/check_mk/mikrotik-rest-api
+# for details and maintainer
+#
+# check_mk is free software;  you can redistribute it and/or modify it
+# under the  terms of the  GNU General Public License  as published by
+# the Free Software Foundation in version 2.  check_mk is  distributed
+# in the hope that it will be useful, but WITHOUT ANY WARRANTY;  with-
+# out even the implied warranty of  MERCHANTABILITY  or  FITNESS FOR A
+# PARTICULAR PURPOSE. See the  GNU General Public License for more de-
+# tails. You should have  received  a copy of the  GNU  General Public
+# License along with GNU Make; see the file  COPYING.  If  not,  write
+# to the Free Software Foundation, Inc., 51 Franklin St,  Fifth Floor,
+# Boston, MA 02110-1301 USA.
+
+
+import sys, getopt, re, pprint, json
+
+try:
+    import requests
+except ImportError:
+    sys.stderr.write("cannot import requests. Try installing package python3-requests\n")
+    sys.exit(1)
+
+from requests.packages import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+#
+# usage information
+#
+def usage():
+    sys.stderr.write("""CheckMK MikroTik Special Agent (REST API only)
+
+USAGE: agent_mikrotik_rest_api -u <USER> -p <PASSWORD> [OPTIONS] <HOST>
+       agent_mikrotik_rest_api -h
+
+Queries a MikroTik device via the RouterOS REST API (RouterOS 7.1+,
+service www-ssl for HTTPS, service www for HTTP from RouterOS 7.9).
+
+ARGUMENTS:
+  HOST                          Host name or IP address of the target device
+  -u USER, --user USER          Username for MikroTik router login
+  -p PASS, --pass PASS          Password for MikroTik router login
+
+OPTIONS:
+  -h, --help                    Show this help message and exit
+  -n, --no-ssl                  Use HTTP instead of HTTPS (not recommended,
+                                credentials are sent in plain text)
+  -t, --skip-cert-check         Do not verify the HTTPS certificate
+  -c PORT, --connect PORT       TCP port, default 443 (HTTPS) or 80 (HTTP)
+  --timeout SECONDS             Timeout per request, default 15
+  --debug                       Debug mode: write some debug messages,
+                                let Python exceptions come through
+  -i MODULES, --modules MODULES Modules to query. This is a comma separated list
+                                which may contain the keywords "bgp", "ospf",
+                                "health", "board", "vrrp", "ipsec", "firewall",
+                                "file", "license", "ups", "pools", "ntp",
+                                "wireguard", "wifi" and "interfaces".
+                                You can define to use only few of them to optimize
+                                performance. The default is "all", which covers
+                                every module except "wifi" and "interfaces"
+                                (opt-in, name them explicitly).
+
+""")
+
+
+class RestError(Exception):
+    """Connection or authentication problem: the agent cannot continue."""
+
+
+def _excepthook(exc_type, exc, tb, _default=sys.excepthook):
+    # a connection problem in the middle of the run: short message for the
+    # Check_MK service instead of a traceback
+    if issubclass(exc_type, RestError) and not opt_debug:
+        sys.stderr.write("ERROR: %s\n" % exc)
+        return  # the interpreter exits with status 1
+    _default(exc_type, exc, tb)
+
+
+sys.excepthook = _excepthook
+
+
+# one HTTP session for all requests (keep-alive, auth once per request)
+session = None
+base_url = None
+
+
+def rest_connect():
+    global session, base_url
+    session = requests.Session()
+    session.auth = (user, password)
+    # verify is also passed per request: REQUESTS_CA_BUNDLE in the
+    # environment would otherwise override session.verify
+    session.verify = certcheck
+    session.headers['user-agent'] = 'CMK mikrotik-rest-api plugin'
+    base_url = '%s://%s:%s/rest' % ('https' if secure else 'http',
+                                    '[%s]' % host if ':' in host else host, port)
+
+
+def _rest_request(method, path, body=None):
+    """Return the decoded JSON as list of dicts, [] if the menu does not
+    exist on this device (HTTP 400/404/406, e.g. wrong wireless driver)."""
+    url = base_url + path
+    try:
+        if method == 'GET':
+            response = session.get(url, timeout=opt_timeout, verify=certcheck)
+        else:
+            response = session.post(url, json=body or {}, timeout=opt_timeout,
+                                    verify=certcheck)
+    except requests.exceptions.SSLError as exc:
+        raise RestError("HTTPS certificate problem (%s). For self-signed "
+                        "certificates choose 'HTTPS - do not validate certificate'." % exc)
+    except requests.exceptions.RequestException as exc:
+        raise RestError("Connection to %s failed: %s" % (base_url, exc))
+
+    if response.status_code in (401, 403):
+        raise RestError("Access denied (HTTP %s) - check user, password and "
+                        "user group policies (read, api)" % response.status_code)
+    try:
+        result = response.json()
+    except ValueError:
+        result = []
+    if response.status_code >= 400:
+        if opt_debug:
+            print('\n# DEBUG %s %s -> HTTP %s %s' % (method, path, response.status_code, result))
+        return []
+
+    rows = result if isinstance(result, list) else [result]
+    rows = [row for row in rows if isinstance(row, dict)]
+    if opt_debug:
+        print('\n# DEBUG_OUTPUT %s %s' % (method, path))
+        pprint.pprint(rows)
+    return rows
+
+
+# print command as used in the module table: ["/ip/address/print"]
+# -> GET /rest/ip/address
+def myapi(command):
+    path = command[0]
+    if path.endswith('/print'):
+        path = path[:-len('/print')]
+    return _rest_request('GET', path)
+
+
+# command with arguments, e.g. rest_post('/interface/ethernet/monitor',
+# {'numbers': '*1,*2', 'once': ''}). Returns [] on errors, callers treat
+# the data as optional.
+def rest_post(path, body):
+    try:
+        return _rest_request('POST', path, body)
+    except RestError:
+        return []
+
+
+# run a print command that may not exist on this device (wrong wireless
+# driver, no CAPsMAN). myapi() returns [] for menus the device does not know;
+# None is returned on errors and error rows.
+def wifi_rows(api, command):
+    try:
+        rows = api([command])
+    except Exception:
+        return None
+    for row in rows:
+        if 'error' in row or ('message' in row and 'name' not in row
+                              and 'interface' not in row):
+            return None
+    return rows
+
+# wifi section, pipe separated because SSIDs may contain spaces:
+#   iface|<driver>|<interface>|<ssid>|<up|down>
+#   client|<driver>|<interface>|<ssid>|<signal dBm>|<band>
+#   cap|<driver>|<identity>|<model>|<serial>|<version>|<base mac>|<state>
+# Client MAC addresses are not reported on purpose. cap lines only come from a
+# CAPsMAN controller, one per managed access point (for the HW/SW inventory).
+def wifi_lines(api):
+    lines = []
+    for driver, iface_command, reg_command, config_command, cap_command in WIFI_SOURCES:
+        if cap_command:
+            for cap in wifi_rows(api, cap_command) or []:
+                lines.append(['cap', driver, cap.get('identity', ''),
+                              cap.get('board-name') or cap.get('board', ''),
+                              cap.get('serial', ''), cap.get('version', ''),
+                              cap.get('base-mac', ''), cap.get('state', '')])
+
+        ifaces = wifi_rows(api, iface_command)
+        if ifaces is None:
+            continue
+
+        # interfaces provisioned by CAPsMAN often only name a configuration
+        # profile (configuration=cfg1) instead of an inline SSID
+        profile_ssid = {}
+        if config_command:
+            for profile in wifi_rows(api, config_command) or []:
+                if profile.get('name') and profile.get('ssid'):
+                    profile_ssid[profile['name']] = profile['ssid']
+
+        ssid_of = {}
+        for iface in ifaces:
+            name = iface.get('name')
+            if not name or iface.get('disabled') == 'true':
+                continue
+            ssid = iface.get('configuration.ssid') or iface.get('ssid') \
+                   or profile_ssid.get(iface.get('configuration', '')) or ''
+            ssid_of[name] = ssid
+            # CAP-operated interfaces always report running=false on the
+            # controller; there bound + not inactive means the radio is up
+            if 'bound' in iface:
+                up = iface.get('bound') == 'true' and iface.get('inactive') != 'true'
+            else:
+                up = iface.get('running') == 'true'
+            state = 'up' if up else 'down'
+            lines.append(['iface', driver, name, ssid, state])
+
+        for client in wifi_rows(api, reg_command) or []:
+            name = client.get('interface', '')
+            ssid = client.get('ssid') or ssid_of.get(name, '')
+            # wifi: "-56", capsman: "-56", wireless: "-56@HT20-7"
+            raw = client.get('signal') or client.get('rx-signal') \
+                  or client.get('signal-strength') or ''
+            match = re.match(r'-?\d+', raw)
+            signal = match.group(0) if match else ''
+            lines.append(['client', driver, name, ssid, signal,
+                          client.get('band', '')])
+
+    clean = lambda field: field.replace('|', '/').replace('\n', ' ')
+    return ['|'.join(clean(field) for field in line) for line in lines]
+
+# ---------------------------------------------------------------------------
+# JSON modules: one JSON object per line, section header with sep(0).
+# Only whitelisted fields are passed on (never keys or passwords).
+# ---------------------------------------------------------------------------
+
+def _pick(row, fields):
+    return {k: row[k] for k in fields if k in row}
+
+
+# /system/ups (package ups.npk) plus "monitor once" per UPS
+def ups_rows():
+    rows = []
+    for ups in myapi(["/system/ups/print"]):
+        if '.id' not in ups:
+            continue
+        mon = rest_post('/system/ups/monitor', {'numbers': ups['.id'], 'once': ''})
+        row = _pick(ups, ['.id', 'name', 'model', 'serial', 'version',
+                          'manufacture-date', 'nominal-battery-voltage',
+                          'disabled', 'invalid', 'port'])
+        row['monitor'] = mon[0] if mon else {}
+        rows.append(row)
+    return rows
+
+
+# /ip/pool with the number of used addresses from /ip/pool/used (counted
+# here, the list of leases itself is not passed on)
+def pool_rows():
+    pools = myapi(["/ip/pool/print"])
+    if not pools:
+        return []
+    used = {}
+    for row in myapi(["/ip/pool/used?.proplist=pool"]):
+        used[row.get('pool', '')] = used.get(row.get('pool', ''), 0) + 1
+    return [dict(_pick(p, ['name', 'ranges', 'next-pool', 'comment']),
+                 used=used.get(p.get('name', ''), 0))
+            for p in pools if p.get('name')]
+
+
+# /system/ntp/client (single object)
+def ntp_rows():
+    return [_pick(row, ['enabled', 'mode', 'servers', 'server-dns-names',
+                        'vrf', 'status', 'synced-server', 'synced-stratum',
+                        'system-offset', 'freq-drift'])
+            for row in myapi(["/system/ntp/client/print"])
+            if 'enabled' in row or 'status' in row]
+
+
+# /interface/wireguard/peers - without private and preshared keys
+def wireguard_rows():
+    return [_pick(row, ['.id', 'interface', 'name', 'comment', 'public-key',
+                        'endpoint-address', 'endpoint-port',
+                        'current-endpoint-address', 'current-endpoint-port',
+                        'allowed-address', 'last-handshake', 'rx', 'tx',
+                        'disabled', 'responder', 'persistent-keepalive'])
+            for row in myapi(["/interface/wireguard/peers/print"])
+            if row.get('interface')]
+
+
+JSON_MODULES = {
+    'ups': ('mikrotik_rest_api_ups', ups_rows),
+    'pools': ('mikrotik_rest_api_pool', pool_rows),
+    'ntp': ('mikrotik_rest_api_ntp', ntp_rows),
+    'wireguard': ('mikrotik_rest_api_wireguard', wireguard_rows),
+}
+
+
+# "1Gbps" / "2.5Gbps" / "100Mbps" -> bit/s, 0 if unknown
+def rate_to_bps(rate):
+    match = re.match(r'([\d.]+)\s*([KMG])bps', rate or '')
+    if not match:
+        return 0
+    factor = {'K': 10**3, 'M': 10**6, 'G': 10**9}[match.group(2)]
+    return int(float(match.group(1)) * factor)
+
+# interface section, pipe separated because comments may contain spaces:
+#   <index>|<name>|<type>|<disabled>|<running>|<dynamic>|<mac>|<speed bit/s>|
+#   <rx-byte>|<tx-byte>|<rx-packet>|<tx-packet>|<rx-error>|<tx-error>|
+#   <rx-drop>|<tx-drop>|<comment>
+# index is the RouterOS internal id (*1A -> 26): stable, unlike list positions.
+# speed is only known for ethernet/SFP ports, taken from the negotiated rate
+# (/interface/ethernet/monitor), not from the configured speed.
+def interface_lines(api):
+    ifaces = api(["/interface/print"])
+    if not ifaces:
+        return []
+
+    # negotiated rate of all running ethernet ports in a single call
+    running_ether = [i['.id'] for i in ifaces
+                     if i.get('type') == 'ether' and i.get('running') == 'true'
+                     and '.id' in i]
+    speed_of = {}
+    if running_ether:
+        for row in rest_post('/interface/ethernet/monitor',
+                             {'numbers': ','.join(running_ether), 'once': ''}):
+            if row.get('name'):
+                speed_of[row['name']] = rate_to_bps(row.get('rate'))
+
+    lines = []
+    for iface in ifaces:
+        name = iface.get('name')
+        ident = iface.get('.id', '')
+        if not name or not ident.startswith('*'):
+            continue
+        try:
+            index = str(int(ident[1:], 16))
+        except ValueError:
+            continue
+        lines.append([
+            index, name, iface.get('type', ''),
+            iface.get('disabled', 'false'), iface.get('running', 'false'),
+            iface.get('dynamic', 'false'), iface.get('mac-address', ''),
+            str(speed_of.get(name, 0)),
+            iface.get('rx-byte', '0'), iface.get('tx-byte', '0'),
+            iface.get('rx-packet', '0'), iface.get('tx-packet', '0'),
+            iface.get('rx-error', '0'), iface.get('tx-error', '0'),
+            iface.get('rx-drop', '0'), iface.get('tx-drop', '0'),
+            iface.get('comment', ''),
+        ])
+
+    clean = lambda field: str(field).replace('|', '/').replace('\n', ' ')
+    return ['|'.join(clean(field) for field in line) for line in lines]
+
+# command line options
+short_options = 'hu:p:nc:i:t'
+long_options  = [ 'help', 'user=', 'pass=', 'no-ssl', 'connect=', 'debug',
+                  'modules=', 'skip-cert-check', 'timeout=' ]
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], short_options, long_options)
+except getopt.GetoptError as err:
+    sys.stderr.write("%s\n" % err)
+    sys.exit(1)
+
+opt_debug       = False
+opt_timeout     = 15
+secure          = True
+port            = None
+certcheck       = True
+
+host            = None
+user            = None
+password        = None
+mortypes        = [ 'all' ]
+firewall_show_disabled = False
+
+# modules and their REST paths (RouterOS 7, the REST API needs 7.1+)
+command_options = {
+    "bgp"           : {
+                       "header"   : "mikrotik_rest_api_bgp",
+                       "active"   : False,
+                       "command"  : ["/routing/bgp/connection/print"],
+                       "filtered" : ['name', 'established', 'remote.as', 'remote.address'],
+                       "required" : True
+                      },
+
+    "ospf"          : {
+                       "header"  : "mikrotik_rest_api_ospf",
+                       "active"  : False,
+                       "command" : ["/routing/ospf/neighbor/print"],
+                       "filtered": ['router-id', 'address', 'state'],
+                       "required": True,
+                      },
+
+    "health"        : {
+                       "header"  : "mikrotik_rest_api_health",
+                       "active"  : False,
+                       "command" : ["/system/health/print"]
+                      },
+
+    "board"         : {
+                       "header"  : "mikrotik_rest_api_board",
+                       "active"  : False,
+                       "command" : ["/system/resource/print"]
+                      },
+
+    "vrrp"          : {
+                       "header"  : "mikrotik_rest_api_vrrp",
+                       "active"  : False,
+                       "command" : ["/interface/vrrp/print"],
+                       "filtered": ['name', 'vrid', 'invalid', 'mac-address', 'master', 
+                                    'backup', 'interface', 'running', 'disabled'],
+                      },
+
+    "ipsec"         : {
+                       "header"  : "mikrotik_rest_api_ipsec",
+                       "active"  : False,
+                       "command" : ["/ip/ipsec/peer/print"]
+                      },
+
+    "file"          : {
+                       "header"  : "mikrotik_rest_api_file",
+                       "active"  : False,
+                       "command" : ["/file/print"],
+                       "filtered": ['name', 'creation-time', 'last-modified', 'type'],
+                       "required": True
+                      },
+
+    "firewall"      : {
+                       "header"  : "mikrotik_rest_api_firewall",
+                       "active"  : False,
+                       "command" : ["/ip/firewall/filter/print"]
+                      },
+    "license"       : {
+                       "header"  : "mikrotik_rest_api_license",
+                       "active"  : False,
+                       "command" : ["/system/license/print"]
+                      },
+
+    # the commands are in WIFI_SOURCES, the device decides which exist
+    "wifi"          : {
+                       "header"  : "mikrotik_rest_api_wifi",
+                       "active"  : False,
+                       "command" : [],
+                      },
+
+    # JSON modules, see JSON_MODULES
+    "ups"           : {"header": "mikrotik_rest_api_ups", "active": False, "command": []},
+    "pools"         : {"header": "mikrotik_rest_api_pool", "active": False, "command": []},
+    "ntp"           : {"header": "mikrotik_rest_api_ntp", "active": False, "command": []},
+    "wireguard"     : {"header": "mikrotik_rest_api_wireguard", "active": False, "command": []},
+
+    # /interface/print plus /interface/ethernet/monitor, see interface_lines
+    "interfaces"    : {
+                       "header"  : "mikrotik_rest_api_if",
+                       "active"  : False,
+                       "command" : [],
+                      },
+}
+
+# modules that "all" does not include - they only run when named in --modules
+OPT_IN_MODULES = ("wifi", "interfaces")
+
+# wifi: one entry per RouterOS wireless driver. Devices only know the menus
+# of the installed driver; the others answer with a trap and are skipped.
+#   wifi     - new driver (RouterOS 7.13+, also CAPsMAN for it)
+#   wireless - legacy driver, local interfaces
+#   capsman  - legacy CAPsMAN (/caps-man), clients of all managed CAPs
+# (driver, interfaces, registration table, configuration profiles or None,
+#  managed access points of a CAPsMAN controller or None)
+WIFI_SOURCES = [
+    ("wifi",     "/interface/wifi/print",     "/interface/wifi/registration-table/print",
+                 "/interface/wifi/configuration/print",
+                 "/interface/wifi/capsman/remote-cap/print"),
+    ("wireless", "/interface/wireless/print", "/interface/wireless/registration-table/print",
+                 None, None),
+    ("capsman",  "/caps-man/interface/print", "/caps-man/registration-table/print",
+                 "/caps-man/configuration/print", "/caps-man/remote-cap/print"),
+]
+
+
+for o,a in opts:
+    if o in [ '--debug' ]:
+        opt_debug = True
+    elif o in [ '-u', '--user' ]:
+        user = a
+    elif o in [ '-p', '--pass' ]:
+        # Support CheckMK password store: value arrives as "key:/path/to/stored_passwords"
+        if ':' in a:
+            _key, _path = a.split(':', 1)
+            try:
+                import pathlib as _pathlib
+                import cmk.utils.password_store as _ps
+                password = _ps.lookup(_pathlib.Path(_path), _key)
+            except Exception:
+                password = a
+        else:
+            password = a
+    elif o in [ '-n', '--no-ssl' ]:
+        secure   = False
+    elif o in [ '-t', '--skip-cert-check' ]:
+        certcheck = False
+    elif o in [ '-c', '--connect' ]:
+        port    = a
+    elif o in [ '--timeout' ]:
+        opt_timeout = float(a)
+    elif o in [ '-i', '--modules' ]:
+        mortypes = a.split(',')
+        # detect firewall:show-disabled
+        new_modules = []
+        for m in mortypes:
+            if m == "firewall:show-disabled":
+                firewall_show_disabled = True
+                new_modules.append("firewall")
+            else:
+                new_modules.append(m)
+        mortypes = new_modules
+    elif o in [ '-h', '--help' ]:
+        usage()
+        sys.exit(0)
+
+if len(args) == 1:
+    host = args[0]
+
+if not args:
+    sys.stderr.write("ERROR: No arguments.\n\n")
+    usage()
+    sys.exit(1)
+
+if host == None:
+    sys.stderr.write("ERROR: No host given.\n\n")
+    usage()
+    sys.exit(1)
+
+if user == None:
+    sys.stderr.write("ERROR: No user name given.\n\n")
+    usage()
+    sys.exit(1)
+
+if password == None:
+    sys.stderr.write("ERROR: No password given.\n\n")
+    usage()
+    sys.exit(1)
+
+if port is None:
+    port = 443 if secure else 80
+
+# connect, check credentials and RouterOS version with the first request
+rest_connect()
+try:
+    resource = myapi(["/system/resource/print"])
+except RestError as exc:
+    sys.stderr.write("ERROR: %s\n" % exc)
+    sys.exit(1)
+if not resource or 'version' not in resource[0]:
+    sys.stderr.write("ERROR: no REST API answer from %s - is the service %s "
+                     "enabled (RouterOS 7.1+%s)?\n"
+                     % (base_url, 'www-ssl' if secure else 'www',
+                        '' if secure else ', HTTP needs 7.9+'))
+    sys.exit(1)
+
+# special agent header
+print ("<<<check_mk>>>")
+print ("Version: 1.2.3-mikrotik_rest_api_agent")
+print ("AgentOS: RouterOS %s" % resource[0]['version'])
+
+version = re.match(r"\d+", resource[0]["version"]).group(0)
+
+# which modules are requested
+for module in command_options.keys():
+    # "all" leaves out the opt-in modules, they only run when named explicitly
+    try:
+        if mortypes.index("all") >= 0 and module not in OPT_IN_MODULES:
+            command_options[module]["active"] = True
+    except ValueError:
+        pass
+
+    try:
+        if mortypes.index(module) >= 0:
+            command_options[module]["active"] = True
+    except ValueError:
+        pass
+
+# this function prints info
+def print_filtered():
+    for line in out:
+
+        # reset info block
+        info_block = []
+
+        for what in command_options[module]["filtered"]:
+           try:
+               info_block.append("%s %s" % (what, line[what]))
+           except:
+               continue
+
+        # boarding completed?
+        try:
+            if command_options[module]["required"] and len(info_block) == len(command_options[module]["filtered"]):
+                print('\n'.join(info_block))
+                continue
+        except:
+            pass
+        
+        print('\n'.join(info_block))
+
+
+# fetch information from api, loop thru modules, prepare output for checkmk
+for module in command_options.keys():
+
+    # to be done?
+    if command_options[module]["active"] != True:
+        continue
+
+    # wifi queries several menus and needs its own separator
+    if module == "wifi":
+        lines = wifi_lines(myapi)
+        if lines:
+            print('<<<mikrotik_rest_api_wifi:sep(124)>>>')
+            print('\n'.join(lines))
+            print('<<<>>>')
+        continue
+
+    if module in JSON_MODULES:
+        section_name, collect = JSON_MODULES[module]
+        rows = collect()
+        if rows:
+            print('<<<%s:sep(0)>>>' % section_name)
+            for row in rows:
+                print(json.dumps(row, sort_keys=True))
+            print('<<<>>>')
+        continue
+
+    # interfaces: counters and state for the standard interface check
+    if module == "interfaces":
+        lines = interface_lines(myapi)
+        if lines:
+            print('<<<mikrotik_rest_api_if:sep(124)>>>')
+            print('\n'.join(lines))
+            print('<<<>>>')
+        continue
+
+    # read and execute api command
+    command = command_options[module]["command"]
+    out     = myapi(command)
+
+
+    # any result?
+    if not out:
+        continue
+
+    # declare
+    header  = 'mikrotik_rest_api_%s' % module
+    print ('<<<%s>>>' % header)
+
+    # these are very similar:
+    if module == "bgp" or module == "ospf" or module == "vrrp" or module == 'file':
+
+        # BGP from a RouterOS V6 devivce is already complete
+        # newer OS we have to inject info from another api call
+        if module == "bgp":
+            command = ["/routing/bgp/session/print"]
+            bgpout = myapi(command)
+
+            # correlation is kinda tricky: 'name' ist suffixed in second call
+            # 1. loop thru first api call, this is connection config
+            # 2. then find a session info with a name starting with connection name
+            # 3. take established from there (which is missing if not established)
+            i = 0
+            for line in out:
+                for bgpline in bgpout:
+                    try:
+                        if bgpline['name'].startswith(line['name']):
+                            out[i]['established'] = bgpline['established']
+                            bgpout.remove(bgpline)
+                    except KeyError:
+                        out[i]['established'] = 'false'
+                i += 1
+
+        # tell the others
+        print_filtered()
+
+    # split health into different checks
+    elif header == "mikrotik_rest_api_health":
+
+        # rewrite from version 7
+        if int(version) >= 7:
+            newout = {}
+            #print(out)
+            for item in list(out):
+                
+                if 'name' not in item:
+                    continue
+
+                key = item['name']
+                val = float(item['value'])*1000 if item['type'] == 'A' else item['value']
+                newout[key] = val
+
+            out = []
+            out.append(newout)
+
+        # use these as (string-)filter for output _and_ check declaration
+        health_items = ['fan', 'temp', 'power', 'psu']
+
+        # sort all information to health_items, just compare names
+        info = {}
+        for line in out:
+            for what in health_items:
+                info[what] = dict(filter(lambda item: what in item[0], line.items()))
+
+
+        # special handling if name is not sufficiant
+        for special in ['current', 'voltage']:
+            info['power'].update(dict(filter(lambda item: special in item[0],
+                                                 line.items())))
+
+        # fake temperature to be a linux sensor
+        print('<<<lnx_thermal:sep(124)>>>')
+        for what in (info['temp']):
+            if 'temperature' in what:
+                print("%s|enabled|x86_pkg_temp|%s000|0|passive|0|passive" % (
+                       what, info['temp'][what]))
+
+        # print all health_items that contain values, skip some
+        for what in health_items:
+            if what in ['temp']:
+                continue
+
+            if info[what]:
+                print ("<<<mikrotik_rest_api_%s>>>" % what)
+                for item in info[what]:
+                    print ("%s %s" % ( item, info[what][item]))
+
+        # PoE output consumption as its own dedicated section
+        if 'poe-out-consumption' in line:
+            print("<<<mikrotik_rest_api_poe>>>")
+            print("poe-out-consumption %s" % line['poe-out-consumption'])
+            print("<<<>>>")
+
+    # ipsec
+    elif header == "mikrotik_rest_api_ipsec":
+
+        # break on any error (unexpected API response)
+        try:
+            for line in out:
+                print ("peer %s %s %s" % (
+                        line['name'], 
+                        line['local-address'].split('/')[0], 
+                        line['address'].split('/')[0]))
+
+            command = ["/ip/address/print"]
+            for line in myapi(command):
+                if line['invalid'] == 'true':
+                    print ("invip %s %s" % (
+                            line['address'].split('/')[0], 
+                            line['actual-interface']))
+
+            # ipsec main info: both api calls before are only to detect a standby gateway
+            command = ["/ip/ipsec/installed-sa/print"]
+            for line in myapi(command):
+                try:
+                    print ("sa %s %s %s %s %s" % (
+                            line['src-address'], 
+                            line['dst-address'], 
+                            line['state'], 
+                            line['current-bytes'], 
+                            line['current-packets']))
+                except:
+                    print ("sa %s %s %s 0 0" % (
+                            line['src-address'], 
+                            line['dst-address'], 
+                            line['state']))
+        except:
+            print ('<<<>>>')
+
+    # chains
+    elif header == "mikrotik_rest_api_firewall":
+
+        # print global flag if enabled
+        if firewall_show_disabled:
+            print("@show_disabled true")
+        # remove duplicates, that are reported by api for whatever reason
+        # - convert list of dicts into list of tuples containing dict
+        # - hash (set comprehension)
+        # - recreate dict
+        out = [dict(t) for t in {tuple(d.items()) for d in out}]
+
+        # print the information we have, do not stop on missing ones
+        for line in out:
+             for what in ['comment', '.id', 'chain', 'bytes', 'packets', 'disabled']:
+                 try:
+                     print ("%s %s" % (what, line[what]))
+                 except:
+                     print ("%s None" % (what))
+
+    # board: /system/resource has version and board-name only,
+    # serial and RouterBOOT firmware come from /system/routerboard
+    elif header == "mikrotik_rest_api_board":
+        for line in out:
+            for item in line:
+                print ("%s %s" % ( item, line[item]))
+
+        # prefixed with rb- so the keys cannot clash with /system/resource.
+        # Devices without a RouterBOARD (CHR, x86) may lack these fields,
+        # so print only what is there and never fail the whole agent on it.
+        try:
+            rbout = myapi(["/system/routerboard/print"])
+        except Exception:
+            rbout = []
+        for line in rbout:
+            for what in ['routerboard', 'model', 'serial-number', 'firmware-type',
+                         'current-firmware', 'upgrade-firmware']:
+                if what in line:
+                    print ("rb-%s %s" % (what, line[what]))
+
+    # any other key-value information with no special handling
+    else:
+        for line in out:
+            for item in line:
+                print ("%s %s" % ( item, line[item]))
+
+
+    print ('<<<>>>')
+# This is the end, my friend.
+

@@ -1,0 +1,21 @@
+title: MikroTik REST API: License (CHR)
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ License expiry of a MikroTik Cloud Hosted Router (CHR), read from
+ {/system/license} ({deadline-at}, {next-renewal-at}).
+
+ The service is WARN 14 days and CRIT 3 days before the license expires,
+ the time until the next renewal is shown in the details. Levels and the
+ time pattern via the rule {MikroTik REST API: License (CHR)}.
+
+ Special agent {MikroTik RouterOS (mikrotik-rest-api)} in Setup >
+ Agents > Other integrations, module "License Key (CHR)".
+
+perfdata:
+ Time until the license expires.
+
+inventory:
+ One service if the device reports a license deadline.

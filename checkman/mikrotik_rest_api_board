@@ -1,0 +1,39 @@
+title: MikroTik REST API: Routerboard Info
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ Info of a MikroTik RouterOS Board
+
+ This check reports model, RouterOS version, serial number and
+ RouterBOOT firmware of a MikroTik RouterOS device.
+
+ If a minimum RouterOS version is defined, the check goes {WARN}
+ if the installed version is below it.
+
+ If /system/routerboard reports an upgrade-firmware higher than
+ current-firmware, a RouterBOOT firmware upgrade is pending
+ (/system/routerboard upgrade, then reboot). The check goes {WARN}
+ by default; the state is configurable.
+
+ Serial number and firmware need agent version 4.1.0 or later and
+ are only reported by devices that have a RouterBOARD.
+
+ The same data is written to the HW/SW inventory (hardware.system,
+ software.os, software.firmware) if the "Do HW/SW Inventory" rule
+ applies to the host.
+
+ To connect to the MikroTik device a special datasource program is
+ used (SNMP won't report this information): {MikroTik RouterOS (mikrotik-rest-api)} in
+ Setup > Agents> Other integrations > Hardware
+
+item:
+ None
+
+perfdata:
+ None
+
+inventory:
+ One service per device.
+

@@ -1,0 +1,26 @@
+title: MikroTik REST API: NAND bad blocks
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ Share of bad blocks of the NAND flash of a MikroTik device ({bad-blocks}
+ of {/system/resource}, reported in percent).
+
+ A small share of bad blocks is normal for NAND flash, often already from
+ the factory, and is handled by the flash management. The service is WARN
+ at 2% and CRIT at 5% by default, configurable with the rule {MikroTik
+ REST API: NAND bad blocks}. Written sectors since reboot and in total are
+ shown in the details as an indicator for flash wear.
+
+ Special agent {MikroTik RouterOS (mikrotik-rest-api)} in Setup > Agents >
+ Other integrations, module "RouterOS Info, CPU, memory, system disk,
+ uptime".
+
+ Added in mikrotik-rest-api 1.2.3 by Klaus Paulitsch.
+
+perfdata:
+ Bad blocks in percent.
+
+inventory:
+ One service if the device reports bad blocks (devices with NAND flash).
