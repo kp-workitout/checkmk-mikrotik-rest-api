@@ -1,5 +1,11 @@
 # Changelog - mikrotik-rest-api (MikroTik Monitoring Plugin for Checkmk)
 
+## [1.2.4] - 2026-10-31
+### Changed
+- Published on GitHub: kp-workitout/checkmk-mikrotik-rest-api. Download
+  URL in the package, README and Exchange description point there.
+- Agent version string updated to 1.2.4
+
 ## [1.2.3] - 2026-10-26
 ### Fixed
 - Filesystem system disk was WARN as soon as the device reported any bad

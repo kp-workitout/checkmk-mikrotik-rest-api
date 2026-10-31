@@ -24,8 +24,9 @@ Requirements: CheckMK 2.4 or later, RouterOS 7.1 or later, a user with the polic
 
 Rules of the original mikrotik package are not taken over; create a new special agent rule MikroTik RouterOS (mikrotik-rest-api).
 
-Changes per release are shown in the version description below. Full changelog: CHANGELOG.MD in the package.
+Changes per release are shown in the version description below. Full changelog: https://github.com/kp-workitout/checkmk-mikrotik-rest-api/blob/main/CHANGELOG.MD
 
-Original source: https://github.com/TonyBostonTB/CMK_Mikrotik
+Source, releases and issues: https://github.com/kp-workitout/checkmk-mikrotik-rest-api
+Original plugin: https://github.com/TonyBostonTB/CMK_Mikrotik
 
 Original plugin: Tony Boston, based on the plugin by Andrea Fadda (devilofhell87). mikrotik-rest-api 1.0.0 (REST API only, rename, interface monitoring, CPU/memory/disk/uptime): Klaus Paulitsch.

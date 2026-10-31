@@ -1,6 +1,9 @@
 ## mikrotik-rest-api – MikroTik RouterOS Plugin for CheckMK
 
-Based on the `mikrotik` Checkmk package 4.2.0 (Tony Boston), renamed so that
+Source, releases and issues: https://github.com/kp-workitout/checkmk-mikrotik-rest-api
+
+Based on the `mikrotik` Checkmk package 4.2.0 (Tony Boston,
+[TonyBostonTB/CMK_Mikrotik](https://github.com/TonyBostonTB/CMK_Mikrotik)), renamed so that
 both packages can be installed at the same time.
 
 This plugin monitors MikroTik RouterOS devices **exclusively via the
@@ -49,7 +52,9 @@ It includes checks for:
 
 ### Installation
 
-Install the `.mkp` file via **Setup → Extension packages** or via the CLI:
+Download the `.mkp` file of the latest release from
+[kp-workitout/checkmk-mikrotik-rest-api/releases](https://github.com/kp-workitout/checkmk-mikrotik-rest-api/releases) and install it via
+**Setup → Extension packages** or via the CLI:
 
 ```
 mkp add mikrotik-rest-api-<version>.mkp

@@ -22,7 +22,7 @@ import tarfile
 import time
 
 PACKAGE_NAME = "mikrotik-rest-api"
-VERSION = "1.2.3"
+VERSION = "1.2.4"
 OUTPUT = f"{PACKAGE_NAME}-{VERSION}.mkp"
 
 # (source path relative to repo root, archive path inside cmk_addons_plugins.tar)
@@ -68,7 +68,7 @@ SUMMARY = (
     "RouterOS version, RouterBOOT firmware); CHR license expiry; IPsec and "
     "firewall filter rules; WiFi clients, signal and radios per SSID, also via CAPsMAN; network interfaces with traffic, errors, state and speed; CPU utilization, memory, system disk and uptime; UPS; IP pool usage; NTP client; WireGuard peers; file age and crashfile handling. "
     "Requires CheckMK 2.4.0 or later. Full changelog: CHANGELOG.MD in the "
-    "source repository. By Klaus Paulitsch, based on mikrotik 4.2.0 by Tony Boston."
+    "source repository on GitHub, kp-workitout/checkmk-mikrotik-rest-api. By Klaus Paulitsch, based on mikrotik 4.2.0 by Tony Boston."
 )
 
 _FORBIDDEN = set("<>`'\"*#[]_")
@@ -133,7 +133,7 @@ INFO: dict = {
     "version.min_required": "2.4.0",
     "version.usable_until": None,  # no upper limit
     "author": "Klaus Paulitsch (kp@workitout.at), based on mikrotik by Tony Boston (tboston@csitlab.org)",
-    "download_url": "",
+    "download_url": "https://github.com/kp-workitout/checkmk-mikrotik-rest-api",
     "files": {
         "cmk_addons_plugins": [arc for _, arc in ADDON_FILES],
     },
