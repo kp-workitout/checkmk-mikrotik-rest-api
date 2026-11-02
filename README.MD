@@ -105,6 +105,10 @@ keepalive) count as **dial-in** and have no levels by default. Both can be
 changed in the rule *MikroTik REST API: WireGuard peers*. Private and
 preshared keys are never collected.
 
+### License
+
+GPL version 3 only (`SPDX-License-Identifier: GPL-3.0-only`), see `LICENSE`.
+
 ### Credits
 
 - Original plugin: Tony Boston (tboston@csitlab.org)

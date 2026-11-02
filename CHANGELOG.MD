@@ -1,5 +1,15 @@
 # Changelog - mikrotik-rest-api (MikroTik Monitoring Plugin for Checkmk)
 
+## [1.2.5] - 2026-11-02
+### Fixed
+- License header: the agent header said GPL version 2, the package is
+  licensed under GPL version 3 only (see LICENSE), as confirmed by Tony
+  Boston and fixed the same way in mikrotik 4.3.3. The agent now carries
+  the GPLv3 notice and SPDX-License-Identifier GPL-3.0-only.
+
+### Changed
+- Agent version string updated to 1.2.5
+
 ## [1.2.4] - 2026-10-31
 ### Changed
 - Published on GitHub: kp-workitout/checkmk-mikrotik-rest-api. Download
