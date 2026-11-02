@@ -22,7 +22,7 @@ import tarfile
 import time
 
 PACKAGE_NAME = "mikrotik-rest-api"
-VERSION = "1.2.5"
+VERSION = "1.3.0"
 OUTPUT = f"{PACKAGE_NAME}-{VERSION}.mkp"
 
 # (source path relative to repo root, archive path inside cmk_addons_plugins.tar)
@@ -66,7 +66,7 @@ SUMMARY = (
     "the original mikrotik package. BGP, OSPF, VRRP; fan, PSU, temperature and "
     "per-PSU power; RouterOS Info and HW/SW inventory (model, serial number, "
     "RouterOS version, RouterBOOT firmware); CHR license expiry; IPsec and "
-    "firewall filter rules; WiFi clients, signal and radios per SSID, also via CAPsMAN; network interfaces with traffic, errors, state and speed; CPU utilization, memory, system disk and uptime; UPS; IP pool usage; NTP client; WireGuard peers; file age and crashfile handling. "
+    "firewall filter rules; WiFi clients, signal and radios per SSID, also via CAPsMAN; network interfaces with traffic, errors, state and speed; CPU utilization, memory, system disk and uptime; UPS; IP pool usage; NTP client; WireGuard peers; MLAG peer and bonds; file age and crashfile handling. "
     "Requires CheckMK 2.4.0 or later. Full changelog: CHANGELOG.MD in the "
     "source repository on GitHub, kp-workitout/checkmk-mikrotik-rest-api. By Klaus Paulitsch, based on mikrotik 4.2.0 by Tony Boston."
 )

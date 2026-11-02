@@ -105,6 +105,17 @@ perfometer_mikrotik_rest_api_bad_blocks = perfometers.Perfometer(
 )
 
 # ---------------------------------------------------------------------------
+# MLAG
+# ---------------------------------------------------------------------------
+
+metric_mikrotik_rest_api_mlag_bond_active = metrics.Metric(
+    name="mikrotik_rest_api_mlag_bond_active",
+    title=Title("Active member ports"),
+    unit=UNIT_COUNT,
+    color=metrics.Color.GREEN,
+)
+
+# ---------------------------------------------------------------------------
 # WireGuard
 # ---------------------------------------------------------------------------
 

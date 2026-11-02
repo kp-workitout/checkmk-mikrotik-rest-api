@@ -31,6 +31,8 @@ It includes checks for:
 - UPS (`/system/ups`, package ups.npk), IP pool usage (`/ip/pool`), NTP
   client (`/system/ntp/client`) and WireGuard peers
   (`/interface/wireguard/peers`, handshake age, endpoint, traffic)
+- MLAG: peer connection and role per bridge, member ports and LACP
+  partner per MLAG bond (not yet verified on MLAG hardware)
 - Network interfaces: traffic, errors, discards, state and speed via the
   standard Checkmk interface check (all rules for interfaces and switch
   ports apply), plus the interface table in the HW/SW inventory

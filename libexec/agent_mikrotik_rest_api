@@ -14,6 +14,7 @@
 # REST API only (HTTPS/HTTP), interfaces module (interface_lines,
 # rest_post, rate_to_bps), based on mikrotik 4.2.0 by Tony Boston.
 # 1.1.0: modules ups, pools, ntp, wireguard (JSON_MODULES).
+# 1.3.0: module mlag.
 #
 # this file is part of mkp package "mikrotik-rest-api"
 # see package description and ~/local/share/doc/check_mk/mikrotik-rest-api
@@ -77,7 +78,7 @@ OPTIONS:
                                 which may contain the keywords "bgp", "ospf",
                                 "health", "board", "vrrp", "ipsec", "firewall",
                                 "file", "license", "ups", "pools", "ntp",
-                                "wireguard", "wifi" and "interfaces".
+                                "wireguard", "mlag", "wifi" and "interfaces".
                                 You can define to use only few of them to optimize
                                 performance. The default is "all", which covers
                                 every module except "wifi" and "interfaces"
@@ -305,8 +306,48 @@ def wireguard_rows():
             if row.get('interface')]
 
 
+# MLAG: bridges with an MLAG peer port ("monitor once" for mlag-state and
+# mlag-active-role) and bondings with an mlag-id ("monitor once" for the
+# active/inactive ports and the LACP partner)
+def _configured(value):
+    return value not in (None, '', 'none')
+
+
+def mlag_rows():
+    rows = []
+    for bridge in myapi(["/interface/bridge/print"]):
+        if not _configured(bridge.get('mlag-peer-port')) or '.id' not in bridge:
+            continue
+        if bridge.get('disabled') == 'true':
+            continue
+        mon = rest_post('/interface/bridge/monitor', {'numbers': bridge['.id'], 'once': ''})
+        row = _pick(bridge, ['name', 'mlag-peer-port', 'mlag-priority',
+                             'mlag-heartbeat', 'running'])
+        row['type'] = 'bridge'
+        row['monitor'] = _pick(mon[0] if mon else {},
+                               ['state', 'mlag-state', 'mlag-active-role',
+                                'bridge-id', 'root-bridge'])
+        rows.append(row)
+    if not rows:
+        return []  # no MLAG configured: no bonds to look at either
+    for bond in myapi(["/interface/bonding/print"]):
+        if not _configured(bond.get('mlag-id')) or '.id' not in bond:
+            continue
+        if bond.get('disabled') == 'true':
+            continue
+        mon = rest_post('/interface/bonding/monitor', {'numbers': bond['.id'], 'once': ''})
+        row = _pick(bond, ['name', 'mlag-id', 'slaves', 'mode', 'running'])
+        row['type'] = 'bond'
+        row['monitor'] = _pick(mon[0] if mon else {},
+                               ['mode', 'active-ports', 'inactive-ports',
+                                'lacp-system-id', 'lacp-partner-system-id'])
+        rows.append(row)
+    return rows
+
+
 JSON_MODULES = {
     'ups': ('mikrotik_rest_api_ups', ups_rows),
+    'mlag': ('mikrotik_rest_api_mlag', mlag_rows),
     'pools': ('mikrotik_rest_api_pool', pool_rows),
     'ntp': ('mikrotik_rest_api_ntp', ntp_rows),
     'wireguard': ('mikrotik_rest_api_wireguard', wireguard_rows),
@@ -467,6 +508,7 @@ command_options = {
     "pools"         : {"header": "mikrotik_rest_api_pool", "active": False, "command": []},
     "ntp"           : {"header": "mikrotik_rest_api_ntp", "active": False, "command": []},
     "wireguard"     : {"header": "mikrotik_rest_api_wireguard", "active": False, "command": []},
+    "mlag"          : {"header": "mikrotik_rest_api_mlag", "active": False, "command": []},
 
     # /interface/print plus /interface/ethernet/monitor, see interface_lines
     "interfaces"    : {
@@ -579,7 +621,7 @@ if not resource or 'version' not in resource[0]:
 
 # special agent header
 print ("<<<check_mk>>>")
-print ("Version: 1.2.5-mikrotik_rest_api_agent")
+print ("Version: 1.3.0-mikrotik_rest_api_agent")
 print ("AgentOS: RouterOS %s" % resource[0]['version'])
 
 version = re.match(r"\d+", resource[0]["version"]).group(0)

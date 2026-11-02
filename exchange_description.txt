@@ -16,7 +16,7 @@ Monitors MikroTik RouterOS devices via the RouterOS REST API (RouterOS 7.1+, ser
 - License expiration (CHR)
 - WiFi per SSID: connected clients, signal strength and radio state, for the new wifi driver, the legacy wireless driver (not tested) and CAPsMAN, new and legacy (one controller covers all its access points)
 - System: CPU utilization, memory, system disk and uptime with the standard Checkmk rules
-- UPS, IP pool usage, NTP client and WireGuard peers (handshake age, endpoint, traffic)
+- UPS, IP pool usage, NTP client, WireGuard peers and MLAG (peer status, bonds) (handshake age, endpoint, traffic)
 - Network interfaces: traffic, errors, discards, state and speed with the standard Checkmk interface rules
 - HW/SW inventory of the access points managed by a CAPsMAN controller: identity, model, serial number, RouterOS version, base MAC
 

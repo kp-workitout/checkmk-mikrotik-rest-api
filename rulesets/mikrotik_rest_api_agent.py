@@ -206,6 +206,13 @@ def _parameter_form() -> Dictionary:
                                 prefill=DefaultValue(False),
                             ),
                         ),
+                        "mlag": DictElement(
+                            required=False,
+                            parameter_form=BooleanChoice(
+                                title=Title("MLAG (peer status of the bridge, MLAG bonds)"),
+                                prefill=DefaultValue(False),
+                            ),
+                        ),
                         # optional module
                         "interfaces": DictElement(
                             required=False,

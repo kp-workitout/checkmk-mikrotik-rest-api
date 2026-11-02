@@ -1,5 +1,24 @@
 # Changelog - mikrotik-rest-api (MikroTik Monitoring Plugin for Checkmk)
 
+## [1.3.0] - 2026-11-02
+### Added
+- **MLAG** (module mlag): service MLAG per bridge with an MLAG peer port
+  (/interface/bridge/monitor, mlag-state and mlag-active-role): peer
+  connected OK, connecting or error CRIT, role shown, optionally an
+  expected role (WARN on mismatch). Service MLAG bond per bond with an
+  mlag-id (/interface/bonding/monitor): no active member port CRIT,
+  inactive member ports WARN, no LACP partner WARN. Rules MikroTik REST
+  API: MLAG peer and MikroTik REST API: MLAG bonds.
+- Field names follow the MikroTik MLAG documentation; not yet verified on
+  MLAG hardware.
+
+### Changed
+- Agent version string updated to 1.3.0
+
+### Upgrade notes
+- Enable MLAG in the special agent rule of the MLAG switches and run a
+  service discovery. Devices without MLAG get no services.
+
 ## [1.2.5] - 2026-11-02
 ### Fixed
 - License header: the agent header said GPL version 2, the package is

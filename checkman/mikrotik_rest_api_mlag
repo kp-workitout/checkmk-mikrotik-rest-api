@@ -1,0 +1,29 @@
+title: MikroTik REST API: MLAG Peer
+agents: mikrotik_rest_api
+catalog: hw/network/mikrotik
+license: GPL
+distribution: check_mk
+description:
+ State of the MLAG (multi-chassis link aggregation) peer connection of a
+ MikroTik bridge with an MLAG peer port ({/interface/bridge/monitor},
+ {mlag-state} and {mlag-active-role}).
+
+ {connected} is OK. {connecting} means the connection to the peer (ICCP
+ over the peer port) is down and is CRIT by default; any other state, for
+ example an error text like "peer port not running", is CRIT as well.
+ The role of this node (primary/secondary) is shown; optionally an
+ expected role can be set, a different role is then WARN (the roles
+ change when the primary reboots or fails). Levels via the rule
+ {MikroTik REST API: MLAG peer}.
+
+ Special agent {MikroTik RouterOS (mikrotik-rest-api)} in Setup > Agents >
+ Other integrations, module "MLAG". Field names follow the MikroTik MLAG
+ documentation; not yet verified on MLAG hardware.
+
+ Added in mikrotik-rest-api 1.3.0 by Klaus Paulitsch.
+
+item:
+ The name of the bridge.
+
+inventory:
+ One service per enabled bridge with an MLAG peer port.
