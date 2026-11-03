@@ -17,7 +17,7 @@ from cmk.agent_based.v2 import (
 from packaging import version  # Sostituisce distutils.version che è deprecato
 
 
-def parse_mikrotik_rest_api_board(string_table: StringTable) -> dict[str, str]:
+def parse_mikrotik_rest_api_board(string_table: StringTable) -> dict[str, str] | None:
     """Parse MikroTik board information from agent output.
 
     Keys prefixed with ``rb-`` come from /system/routerboard (agent >= 4.1.0),
@@ -25,11 +25,13 @@ def parse_mikrotik_rest_api_board(string_table: StringTable) -> dict[str, str]:
     (CPU, memory, system disk, uptime) in mikrotik_rest_api_system.py use the
     same section.
     """
-    return {
+    section = {
         line[0]: " ".join(line[1:])
         for line in string_table
         if line
     }
+    # nothing delivered: None, so the section does not supersede SNMP
+    return section or None
 
 def discover_mikrotik_rest_api_board(section: dict[str, str]) -> DiscoveryResult:
     """Discover service if version information is present."""

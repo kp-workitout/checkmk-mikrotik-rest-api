@@ -7,7 +7,7 @@ description:
  CPU utilization of a MikroTik RouterOS device ({cpu-load} of
  {/system/resource}), with CPU model, cores and frequency in the
  details. Levels and averaging via the rule {CPU utilization for simple
- devices}, default WARN at 90%, CRIT at 95%.
+ devices}, default WARN at 80%, CRIT at 90% (the same as via SNMP).
 
  On a host that is also polled via SNMP this service takes precedence:
  the agent section supersedes the SNMP section (hr_cpu), so the

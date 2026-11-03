@@ -1,5 +1,25 @@
 # Changelog - mikrotik-rest-api (MikroTik Monitoring Plugin for Checkmk)
 
+## [1.3.4] - 2026-11-03
+### Fixed
+- **Interfaces on hosts also polled via SNMP**: superseding is not
+  transitive in Checkmk, so the interface section now supersedes
+  everything the SNMP interface section supersedes as well, plus its
+  additional sections for admin state and interface names (Checkmk 2.5).
+- **Superseding only with data**: the parse functions of the interface
+  and RouterOS Info sections return nothing when the agent delivered no
+  data, so SNMP is only replaced when the module actually works.
+- CPU utilization: default levels WARN 80 percent, CRIT 90 percent, the
+  same as the SNMP check (was 90/95).
+- Verified with the section resolver of Checkmk 2.4 and 2.5 (the code
+  that applies superseding): with SNMP and the module, only the agent
+  sections are used for CPU (also the legacy SNMP CPU check), memory,
+  filesystem, uptime and interfaces; with the module off or without data,
+  the SNMP sections are used.
+
+### Changed
+- Agent version string updated to 1.3.4
+
 ## [1.3.3] - 2026-11-03
 ### Fixed
 - Interfaces: an SFP cage without module was reported as down, SNMP

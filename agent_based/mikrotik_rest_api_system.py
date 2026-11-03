@@ -92,7 +92,7 @@ check_plugin_mikrotik_rest_api_cpu = CheckPlugin(
     discovery_function=discover_mikrotik_rest_api_cpu,
     check_function=check_mikrotik_rest_api_cpu,
     check_ruleset_name="cpu_utilization_os",
-    check_default_parameters={"util": (90.0, 95.0)},
+    check_default_parameters={"util": (80.0, 90.0)},  # same as hr_cpu via SNMP
 )
 
 

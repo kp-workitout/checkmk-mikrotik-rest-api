@@ -80,7 +80,7 @@ def _int(value: str) -> int:
         return 0
 
 
-def parse_mikrotik_rest_api_if(string_table: StringTable) -> Section:
+def parse_mikrotik_rest_api_if(string_table: StringTable) -> Section | None:
     timestamp = time.time()
     section = []
     for line in string_table:
@@ -128,15 +128,19 @@ def parse_mikrotik_rest_api_if(string_table: StringTable) -> Section:
                 timestamp,
             )
         )
-    return section
+    return section or None  # nothing delivered: do not supersede SNMP
 
 
 agent_section_mikrotik_rest_api_if = AgentSection(
     name="mikrotik_rest_api_if",
     parse_function=parse_mikrotik_rest_api_if,
-    # a MikroTik host that is also polled via SNMP would otherwise get
-    # every "Interface" service twice
-    supersedes=["if", "if64"],
+    # A host that is also polled via SNMP would otherwise get every
+    # "Interface" service twice. Superseding is not transitive in Checkmk,
+    # so everything if64 supersedes is listed as well, plus the extra SNMP
+    # sections of the if64 check (if64adm, and if_name on 2.5; an unknown
+    # name is ignored on 2.4). Only applies when the module delivered data:
+    # the parse function returns None otherwise.
+    supersedes=["if64", "if", "if32_with_alias", "statgrab_net", "if64adm", "if_name"],
 )
 
 
