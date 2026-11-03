@@ -1,5 +1,21 @@
 # Changelog - mikrotik-rest-api (MikroTik Monitoring Plugin for Checkmk)
 
+## [1.3.3] - 2026-11-03
+### Fixed
+- Interfaces: an SFP cage without module was reported as down, SNMP
+  reports it as not present. The agent now also asks the enabled ethernet
+  ports without link for sfp-module-present (separate call with a short
+  timeout, so it cannot delay the other data) and reports an empty cage
+  as not present (6), like SNMP. Verified on a device.
+
+### Changed
+- Agent version string updated to 1.3.3
+
+### Upgrade notes
+- Services of empty SFP cages that were discovered with this agent as
+  down: run a service discovery once, their expected state changes to not
+  present. Hosts switched from SNMP need no rediscovery for these ports.
+
 ## [1.3.2] - 2026-11-03
 ### Changed
 - **Memory and Uptime are now Checkmk's own checks**, fed with

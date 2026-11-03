@@ -6,7 +6,7 @@ so all the usual rules apply: "Network interface and switch port discovery"
 bandwidth, errors, discards, speed, state, averaging, interface groups.
 
 Agent section (pipe separated, written by agent module "interfaces"):
-    <index>|<name>|<type>|<disabled>|<running>|<dynamic>|<mac>|<speed bit/s>|
+    <index>|<name>|<type>|<disabled>|<running|not-present>|<dynamic>|<mac>|<speed bit/s>|
     <rx-byte>|<tx-byte>|<rx-packet>|<tx-packet>|<rx-error>|<tx-error>|
     <rx-drop>|<tx-drop>|<comment>
 
@@ -96,6 +96,8 @@ def parse_mikrotik_rest_api_if(string_table: StringTable) -> Section:
         # admin state, so enabled interfaces look exactly the same
         if disabled == "true":
             admin, oper = "2", "2"
+        elif running == "not-present":
+            admin, oper = None, "6"  # SFP cage without module, like SNMP
         else:
             admin, oper = None, ("1" if running == "true" else "2")
         section.append(
