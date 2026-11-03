@@ -142,9 +142,11 @@ def _parameter_form() -> Dictionary:
                                     "RouterOS Info, HW/SW inventory) plus the services CPU "
                                     "utilization, Memory, Filesystem system disk and Uptime. "
                                     "Levels via the standard rules \"CPU utilization for simple "
-                                    "devices\", \"Main memory usage of simple devices with "
-                                    "single services\", \"File systems (used space and "
-                                    "growth)\" and \"Uptime since last reboot\".",
+                                    "devices\", \"Main memory usage (Unix / other devices)\", "
+                                    "\"File systems (used space and growth)\" and \"Uptime "
+                                    "since last reboot\". Memory and Uptime are Checkmk's own "
+                                    "checks, the same as via SNMP; these services take "
+                                    "precedence over the SNMP ones on hosts polled via both.",
                                 ),
                                 prefill=DefaultValue(False),
                             ),

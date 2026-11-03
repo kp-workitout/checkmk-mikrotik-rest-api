@@ -22,7 +22,7 @@ import tarfile
 import time
 
 PACKAGE_NAME = "mikrotik-rest-api"
-VERSION = "1.3.1"
+VERSION = "1.3.2"
 OUTPUT = f"{PACKAGE_NAME}-{VERSION}.mkp"
 
 # (source path relative to repo root, archive path inside cmk_addons_plugins.tar)

@@ -92,10 +92,12 @@ def parse_mikrotik_rest_api_if(string_table: StringTable) -> Section:
             rx_drop, tx_drop,
         ) = line[:16]
         comment = "|".join(line[16:])  # in case the agent did not escape
+        # admin state only for disabled interfaces: via SNMP Checkmk shows no
+        # admin state, so enabled interfaces look exactly the same
         if disabled == "true":
             admin, oper = "2", "2"
         else:
-            admin, oper = "1", ("1" if running == "true" else "2")
+            admin, oper = None, ("1" if running == "true" else "2")
         section.append(
             interfaces.InterfaceWithCounters(
                 interfaces.Attributes(

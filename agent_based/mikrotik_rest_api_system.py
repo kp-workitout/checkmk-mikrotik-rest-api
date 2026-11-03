@@ -7,9 +7,9 @@ and behave like the CPU, memory, filesystem and uptime services of any other
 host:
 
     CPU utilization       -> CPU utilization for simple devices
-    Memory                -> Main memory usage of simple devices with single services
+    Memory (used)         -> Checkmk's own mem_used check: Memory levels
     Filesystem system disk -> File systems (used space and growth)
-    Uptime                -> Uptime since last reboot
+    Uptime                -> Checkmk's own uptime check: Uptime since last reboot
 
 Added in mikrotik-rest-api 1.0.0 by Klaus Paulitsch <kp@workitout.at>.
 """
@@ -20,6 +20,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from cmk.agent_based.v2 import (
+    AgentSection,
     CheckPlugin,
     CheckResult,
     DiscoveryResult,
@@ -27,6 +28,7 @@ from cmk.agent_based.v2 import (
     Result,
     Service,
     State,
+    StringTable,
     check_levels,
     get_value_store,
     render,
@@ -95,63 +97,30 @@ check_plugin_mikrotik_rest_api_cpu = CheckPlugin(
 
 
 # ---------------------------------------------------------------------------
-# Memory
+# Memory -> Checkmk's own mem_used check
 # ---------------------------------------------------------------------------
+# Same parsed section as SNMP hr_mem ("mem_used"), so the service, its rule
+# (Memory levels) and its output are identical to SNMP, and the section
+# supersedes hr_mem: a host polled via SNMP too never gets it twice.
 
 
-def discover_mikrotik_rest_api_mem(section: Section) -> DiscoveryResult:
-    if _number(section, "total-memory") and _number(section, "free-memory") is not None:
-        yield Service()
+def parse_mikrotik_rest_api_mem(string_table: StringTable) -> dict[str, int] | None:
+    values = {line[0]: line[1] for line in string_table if len(line) >= 2}
+    try:
+        total = int(values["total-memory"])
+        free = int(values["free-memory"])
+    except (KeyError, ValueError):
+        return None
+    if total <= 0:
+        return None
+    return {"MemTotal": total, "MemFree": free, "Cached": 0}
 
 
-def check_mikrotik_rest_api_mem(params: Mapping[str, Any], section: Section) -> CheckResult:
-    total = _number(section, "total-memory")
-    free = _number(section, "free-memory")
-    if not total or free is None:
-        return
-    used = total - free
-    levels = params.get("levels")
-
-    perc_levels = None
-    if isinstance(levels, tuple) and levels[0] == "perc_used":
-        perc_levels = ("fixed", tuple(levels[1]))
-
-    yield from check_levels(
-        100.0 * used / total,
-        levels_upper=perc_levels,
-        render_func=render.percent,
-        label="RAM used",
-        metric_name="mem_used_percent",
-        boundaries=(0, 100),
-    )
-    yield Result(
-        state=State.OK,
-        summary=f"{render.bytes(used)} of {render.bytes(total)}",
-    )
-    yield from check_levels(
-        free,
-        levels_lower=(
-            ("fixed", tuple(levels[1]))
-            if isinstance(levels, tuple) and levels[0] == "abs_free"
-            else None
-        ),
-        render_func=render.bytes,
-        label="Free",
-        notice_only=True,
-    )
-    # standard metric names so the usual memory graphs appear
-    yield Metric("mem_used", used, boundaries=(0, total))
-    yield Metric("mem_total", total)
-
-
-check_plugin_mikrotik_rest_api_mem = CheckPlugin(
+agent_section_mikrotik_rest_api_mem = AgentSection(
     name="mikrotik_rest_api_mem",
-    sections=["mikrotik_rest_api_board"],
-    service_name="Memory",
-    discovery_function=discover_mikrotik_rest_api_mem,
-    check_function=check_mikrotik_rest_api_mem,
-    check_ruleset_name="memory_simple_single",
-    check_default_parameters={"levels": ("perc_used", (80.0, 90.0))},
+    parsed_section_name="mem_used",
+    parse_function=parse_mikrotik_rest_api_mem,
+    supersedes=["hr_mem"],
 )
 
 
@@ -228,26 +197,22 @@ def parse_routeros_uptime(text: str) -> float | None:
     return seconds
 
 
-def discover_mikrotik_rest_api_uptime(section: Section) -> DiscoveryResult:
-    if parse_routeros_uptime(section.get("uptime", "")) is not None:
-        yield Service()
+def parse_mikrotik_rest_api_uptime(string_table: StringTable) -> uptime.Section | None:
+    for line in string_table:
+        if len(line) >= 2 and line[0] == "uptime":
+            seconds = parse_routeros_uptime(" ".join(line[1:]))
+            if seconds is not None:
+                return uptime.Section(uptime_sec=seconds, message=None)
+    return None
 
 
-def check_mikrotik_rest_api_uptime(params: Mapping[str, Any], section: Section) -> CheckResult:
-    seconds = parse_routeros_uptime(section.get("uptime", ""))
-    if seconds is None:
-        return
-    yield from uptime.check(params, uptime.Section(uptime_sec=seconds, message=None))
-
-
-check_plugin_mikrotik_rest_api_uptime = CheckPlugin(
+# Same parsed section as SNMP ("uptime"): Checkmk's own uptime check, rule
+# and output; supersedes snmp_uptime.
+agent_section_mikrotik_rest_api_uptime = AgentSection(
     name="mikrotik_rest_api_uptime",
-    sections=["mikrotik_rest_api_board"],
-    service_name="Uptime",
-    discovery_function=discover_mikrotik_rest_api_uptime,
-    check_function=check_mikrotik_rest_api_uptime,
-    check_ruleset_name="uptime",
-    check_default_parameters={},
+    parsed_section_name="uptime",
+    parse_function=parse_mikrotik_rest_api_uptime,
+    supersedes=["snmp_uptime"],
 )
 
 

@@ -1,5 +1,29 @@
 # Changelog - mikrotik-rest-api (MikroTik Monitoring Plugin for Checkmk)
 
+## [1.3.2] - 2026-11-03
+### Changed
+- **Memory and Uptime are now Checkmk's own checks**, fed with
+  the same parsed sections as the SNMP checks. Service
+  name, rule and output are identical to SNMP, e.g. "RAM: 25.12% - 64.3
+  MiB of 256 MiB" (verified side by side with SNMP on a device). Levels
+  for memory: rule "Main memory usage (Unix / other devices)".
+- **Precedence over SNMP**: on a host that is also polled via SNMP, the
+  sections of this agent supersede the SNMP sections for memory, uptime,
+  CPU and storage (HOST-RESOURCES-MIB and sysUpTime),
+  so CPU utilization, Memory, Filesystem system disk and Uptime are never
+  created twice (like interfaces, which already supersede the SNMP interface sections).
+- Interfaces: "Admin state" is only reported for disabled interfaces;
+  enabled interfaces now look exactly like via SNMP.
+- Agent version string updated to 1.3.2
+
+### Upgrade notes
+- Run a service discovery on the MikroTik hosts: the services Memory and
+  Uptime are replaced by Checkmk's own ones (Uptime keeps its name and
+  graph; Memory gets the name your site uses for Checkmk's memory check, e.g. "Memory"
+  or "Memory used"). Levels set with the rule "Main memory usage of simple
+  devices with single services" no longer apply, use "Main memory usage
+  (Unix / other devices)".
+
 ## [1.3.1] - 2026-11-03
 ### Fixed
 - Interfaces now match SNMP exactly, verified on a device against

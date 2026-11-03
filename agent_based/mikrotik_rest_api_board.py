@@ -172,6 +172,9 @@ def inventory_mikrotik_rest_api_board(section: dict[str, str]) -> InventoryResul
 agent_section_mikrotik_rest_api_board = AgentSection(
     name="mikrotik_rest_api_board",
     parse_function=parse_mikrotik_rest_api_board,
+    # CPU utilization and Filesystem system disk come from this section; a
+    # host that is also polled via SNMP must not get them twice
+    supersedes=["hr_cpu", "hr_fs"],
 )
 
 # Register check plugin
