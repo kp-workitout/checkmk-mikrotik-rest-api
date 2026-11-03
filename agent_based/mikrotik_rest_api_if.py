@@ -37,7 +37,10 @@ from cmk.plugins.lib.inventory_interfaces import inventorize_interfaces
 
 Section = Sequence[interfaces.InterfaceWithCounters]
 
-# RouterOS interface type -> IANA ifType (same values RouterOS uses via SNMP)
+# RouterOS interface type -> IANA ifType. ether, vlan, bridge, loopback and
+# WireGuard are verified against the ifType RouterOS reports via SNMP
+# (loopback and WireGuard: other(1)), so the same interface discovery rule
+# finds the same interfaces as with SNMP.
 _IF_TYPES = {
     "ether": "6",           # ethernetCsmacd
     "vlan": "135",          # l2vlan
@@ -47,14 +50,15 @@ _IF_TYPES = {
     "wifi": "71",           # new wifi driver
     "wifiwave2": "71",
     "cap": "71",            # CAPsMAN managed radio
-    "loopback": "24",       # softwareLoopback
+    "loopback": "1",        # SNMP reports other(1), not softwareLoopback(24)
+    "wg": "1",              # SNMP reports other(1) for WireGuard
     "vrrp": "112",          # virtualIpAddress
     "lte": "1",
     "veth": "1",            # container interface
     "macvlan": "1",
 }
 _PPP_PREFIXES = ("pppoe-", "pptp-", "l2tp-", "sstp-", "ovpn-", "ppp-")
-_TUNNEL_TYPES = ("gre", "ipip", "eoip", "6to4", "wg", "vxlan", "vpls", "ipsec")
+_TUNNEL_TYPES = ("gre", "ipip", "eoip", "6to4", "vxlan", "vpls", "ipsec")
 
 _FIELDS = 17
 
@@ -97,7 +101,8 @@ def parse_mikrotik_rest_api_if(string_table: StringTable) -> Section:
                 interfaces.Attributes(
                     index=index,
                     descr=name,
-                    alias=comment or name,
+                    # like SNMP ifAlias: the comment, empty without one
+                    alias=comment,
                     type=_if_type(ros_type),
                     speed=_int(speed),
                     oper_status=oper,

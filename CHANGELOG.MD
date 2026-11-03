@@ -1,5 +1,24 @@
 # Changelog - mikrotik-rest-api (MikroTik Monitoring Plugin for Checkmk)
 
+## [1.3.1] - 2026-11-03
+### Fixed
+- Interfaces now match SNMP exactly, verified on a device against
+  IF-MIB: index (ifIndex = RouterOS internal id), description (ifDescr =
+  name) and alias (ifAlias = comment, empty without one; it was the name
+  before). WireGuard and loopback interfaces get the port type other (1)
+  like via SNMP (was tunnel 131 and softwareLoopback 24).
+
+### Changed
+- Agent version string updated to 1.3.1
+
+### Upgrade notes
+- Item appearance "Use description" or "Use index": no change.
+- Item appearance "Use alias": interfaces without a comment change their
+  item, run a service discovery.
+- WireGuard interfaces: if the interface discovery rule selects them by
+  port type 131 (tunnel), add port type 1 (other) and run a service
+  discovery.
+
 ## [1.3.0] - 2026-11-02
 ### Added
 - **MLAG** (module mlag): service MLAG per bridge with an MLAG peer port

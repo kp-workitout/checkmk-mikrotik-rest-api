@@ -15,8 +15,9 @@ description:
  interface groups).
 
  The RouterOS interface type is mapped to the IANA ifType (ether 6,
- vlan 135, bridge 209, bond 161, wlan/wifi 71, PPP 23, tunnels and
- WireGuard 131, vrrp 112, loopback 24, others 1). With the default
+ vlan 135, bridge 209, bond 161, wlan/wifi 71, PPP 23, tunnels 131,
+ vrrp 112, WireGuard, loopback and others 1). ether, vlan, bridge,
+ WireGuard and loopback match the ifType RouterOS reports via SNMP. With the default
  discovery rule only ethernet ports that are up are discovered, the same
  as for SNMP. Add port types to the discovery rule to monitor VLANs,
  bridges, bondings, PPP or tunnel interfaces.
@@ -25,9 +26,11 @@ description:
  ({/interface/ethernet/monitor}); other interface types report no speed.
  Disabled interfaces are reported as admin down.
 
- Alias is the interface comment (or the name if there is none), the
- description is the interface name. The index is the RouterOS internal
- id, which does not change when other interfaces are added or removed.
+ Index, description and alias are the same as via SNMP: the index is
+ the RouterOS internal id (ifIndex), which does not change when other
+ interfaces are added or removed, the description is the interface name
+ (ifDescr), the alias is the interface comment and empty without one
+ (ifAlias). Switching a host from SNMP to this agent keeps the items.
 
  To connect to the MikroTik device a special datasource program is
  used: {MikroTik RouterOS (mikrotik-rest-api)} in Setup > Agents > Other integrations,
