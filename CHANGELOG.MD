@@ -1,5 +1,16 @@
 # Changelog - mikrotik-rest-api (MikroTik Monitoring Plugin for Checkmk)
 
+## [1.3.5] - 2026-11-03
+### Fixed
+- NTP Time: the time offset metric now carries the levels and is the
+  absolute offset, like the Checkmk timesyncd check, so the Time offset
+  graph and Perf-O-Meter show the WARN/CRIT lines and start at 0. The
+  sign stays in the summary. Same fix as in mikrotik upstream (Tony
+  Boston).
+
+### Changed
+- Agent version string updated to 1.3.5
+
 ## [1.3.4] - 2026-11-03
 ### Fixed
 - **Interfaces on hosts also polled via SNMP**: superseding is not
