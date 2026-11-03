@@ -9,6 +9,10 @@ description:
  details. Levels and averaging via the rule {CPU utilization for simple
  devices}, default WARN at 90%, CRIT at 95%.
 
+ On a host that is also polled via SNMP this service takes precedence:
+ the agent section supersedes the SNMP section (hr_cpu), so the
+ service is never created twice.
+
  To connect to the MikroTik device a special datasource program is
  used: {MikroTik RouterOS (mikrotik-rest-api)} in Setup > Agents >
  Other integrations, module "RouterOS Info, CPU, memory, system disk,

@@ -11,6 +11,10 @@ description:
  CRIT at 90%. Bad blocks of the NAND flash are only shown in the
  details, they have their own service {NAND bad blocks}.
 
+ On a host that is also polled via SNMP this service takes precedence:
+ the agent section supersedes the SNMP section (hr_fs), so the
+ service is never created twice.
+
  To connect to the MikroTik device a special datasource program is
  used: {MikroTik RouterOS (mikrotik-rest-api)} in Setup > Agents >
  Other integrations, module "RouterOS Info, CPU, memory, system disk,
